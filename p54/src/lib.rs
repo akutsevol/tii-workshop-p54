@@ -1,6 +1,6 @@
 use std::arch::x86_64::*;
 #[allow(unused_imports)]
-use rand::prelude::SliceRandom;
+use rand::Rng;
 
 const NUM_ROUNDS: usize = 20;
 
@@ -33,7 +33,7 @@ pub fn aes128_load_key(key: &[u8; 16]) ->[__m128i; NUM_ROUNDS] {
         key_schedule[8]  = aes_128_key_expansion(key_schedule[7], _mm_aeskeygenassist_si128(key_schedule[7], 0x80));
         key_schedule[9]  = aes_128_key_expansion(key_schedule[8], _mm_aeskeygenassist_si128(key_schedule[8], 0x1B));
         key_schedule[10] = aes_128_key_expansion(key_schedule[9], _mm_aeskeygenassist_si128(key_schedule[9], 0x36));
-        
+
         // generate decryption keys in reverse order.
         // k[10] is shared by last encryption and first decryption rounds
         // k[0] is shared by first encryption round and last decryption round (and is the original user key)
@@ -141,6 +141,8 @@ pub fn is_aes_ni_available() -> bool {
 
 #[cfg(test)]
 mod tests {
+    use rand::Rng;
+
     use super::*;
 
     #[test]
@@ -170,9 +172,8 @@ mod tests {
 
         // build plain_text blocks and randomize it
         let mut blocks = [0u8; 128];
-        let mut rng = rand::thread_rng();
-        blocks.shuffle(&mut rng);
-
+        rand::thread_rng().try_fill(&mut blocks).unwrap();
+        
         let mut computed_cipher = [0u8; 128];
         let mut computed_plain = [0u8; 128];
 

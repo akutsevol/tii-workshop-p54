@@ -1,5 +1,4 @@
-// mod lib;
-use rand::prelude::SliceRandom;
+use rand::Rng;
 
 fn main() {
     use p54::{aes128_load_key,aes128_encode,aes128_decode, is_aes_ni_available,encrypt8, decrypt8};
@@ -28,8 +27,7 @@ fn main() {
         println!("");
     
         let mut blocks = [0u8; 128];
-        let mut rng = rand::thread_rng();
-        blocks.shuffle(&mut rng);
+        rand::thread_rng().try_fill(&mut blocks).unwrap();
 
         println!("Original blocks: {:?}", blocks);
         let mut computed_cipher_128 = [0u8; 128];
