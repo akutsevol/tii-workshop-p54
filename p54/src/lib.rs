@@ -91,6 +91,24 @@ pub fn aes128_decode(cipher_text: &[u8; 16], plain_text: &mut [u8; 16], key_sche
     }
 }
 
+pub fn apply_keystream(key_schedule: &[__m128i; NUM_ROUNDS], data: &mut [u8], nonce: &[u8; 8]) {
+    let mut counter = [0u8; 16];
+    counter[..8].copy_from_slice(nonce);
+    
+    for chunk in data.chunks_mut(16) {
+        let mut keystream_block = [0u8; 16];
+        aes128_encode(&counter, &mut keystream_block, &key_schedule);
+        
+        for (i, byte) in chunk.iter_mut().enumerate() {
+            *byte ^= keystream_block[i];
+        }
+
+        // Increment the 64-bit counter part
+        let counter_u64 = u64::from_le_bytes(counter[..8].try_into().unwrap()) + 1;
+        counter[..8].copy_from_slice(&counter_u64.to_le_bytes());
+    }
+}
+
 #[allow(dead_code)]
 // Encrypt eight 128-bit blocks
 pub fn encrypt8(plain_text: &[u8; 128], cipher_text: &mut [u8; 128], key_schedule: &[__m128i; NUM_ROUNDS]) {
@@ -181,5 +199,25 @@ mod tests {
         decrypt8(&computed_cipher, &mut computed_plain, &keys);
 
         assert_eq!(blocks, computed_plain);
+    }
+
+    #[test]
+    fn test_apply_keystream() {
+        assert!(is_aes_ni_available(), "AES-NI is not supported on this CPU");
+
+        let key = [0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c];
+        let keys = aes128_load_key(&key);
+
+        let mut data = [0u8; 64];
+        rand::thread_rng().try_fill(&mut data).unwrap();
+
+        let nonce = &rand::thread_rng().gen::<[u8; 8]>();
+
+        let original_data = data;
+
+        apply_keystream(&keys, &mut data, &nonce);
+        apply_keystream(&keys, &mut data, &nonce);
+
+        assert_eq!(data, original_data, "Decryption did not produce original data");
     }
 }
